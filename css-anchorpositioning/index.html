@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CSS Anchor Positioning – Draggable + Tooltip (with flip fallback)</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    body { margin: 0; background: #0b1220; color: #e6edf3; }
+
+    .stage {
+      position: relative;
+      width: min(100vw, 1100px);
+      height: min(80vh, 650px);
+      margin: 32px auto;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      background:
+        radial-gradient(1200px 600px at 30% 20%, rgba(99,102,241,.22), transparent 60%),
+        radial-gradient(900px 500px at 80% 70%, rgba(16,185,129,.18), transparent 60%),
+        rgba(255,255,255,.03);
+      overflow: hidden;
+      touch-action: none; /* smoother pointer dragging on touch */
+    }
+
+    .draggable {
+      position: absolute;
+      left: 120px;
+      top: 120px;
+      width: 140px;
+      height: 90px;
+      border-radius: 14px;
+      background: rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.18);
+      box-shadow: 0 14px 30px rgba(0,0,0,.35);
+      display: grid;
+      place-items: center;
+      user-select: none;
+      cursor: grab;
+
+      /* Define the anchor */
+      anchor-name: --chip;
+    }
+    .draggable:active { cursor: grabbing; }
+
+    .tooltip {
+      position: absolute;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(0,0,0,.72);
+      border: 1px solid rgba(255,255,255,.14);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 24px rgba(0,0,0,.35);
+      font-size: 13px;
+      line-height: 1.2;
+      pointer-events: none;
+      max-width: 240px;
+      opacity: .98;
+
+      /* arrow support */
+      --arrow-size: 10px;
+      --arrow-offset: 18px;
+    }
+
+    /* Arrow (default: tooltip below anchor => arrow on top) */
+    .tooltip::after {
+      content: "";
+      position: absolute;
+      width: var(--arrow-size);
+      height: var(--arrow-size);
+      background: inherit;
+      border-left: 1px solid rgba(255,255,255,.14);
+      border-top: 1px solid rgba(255,255,255,.14);
+      transform: rotate(45deg);
+      left: var(--arrow-offset);
+      top: calc(var(--arrow-size) * -0.6);
+    }
+
+    /* Arrow variants for JS fallback placements */
+    .tooltip[data-placement^="above"]::after {
+      top: auto;
+      bottom: calc(var(--arrow-size) * -0.6);
+      transform: rotate(225deg);
+      left: var(--arrow-offset);
+    }
+    .tooltip[data-placement^="right"]::after {
+      top: var(--arrow-offset);
+      left: calc(var(--arrow-size) * -0.6);
+      transform: rotate(315deg);
+    }
+    .tooltip[data-placement^="left"]::after {
+      top: var(--arrow-offset);
+      left: auto;
+      right: calc(var(--arrow-size) * -0.6);
+      transform: rotate(135deg);
+    }
+
+    .status {
+      width: min(100vw, 1100px);
+      margin: 0 auto 24px;
+      padding: 0 10px;
+      color: rgba(230,237,243,.85);
+      font-size: 13px;
+    }
+    code { color: #b3c7ff; }
+
+    /* -------------------- */
+    /* Anchor Positioning API with flip fallbacks */
+    /* -------------------- */
+    @supports (anchor-name: --a) and (left: anchor(left)) and (position-anchor: --a) {
+      .tooltip {
+        position-anchor: --chip;
+
+        /* Try below-start first, then flip to above-start, then below-end, above-end, then right/left */
+        position-try-fallbacks: --below-start, --above-start, --below-end, --above-end, --right, --left;
+      }
+
+      @position-try --below-start {
+        top: anchor(bottom);
+        left: anchor(left);
+        margin-top: 10px;
+      }
+
+      @position-try --above-start {
+        bottom: anchor(top);
+        left: anchor(left);
+        margin-bottom: 10px;
+      }
+
+      @position-try --below-end {
+        top: anchor(bottom);
+        right: anchor(right);
+        margin-top: 10px;
+      }
+
+      @position-try --above-end {
+        bottom: anchor(top);
+        right: anchor(right);
+        margin-bottom: 10px;
+      }
+
+      @position-try --right {
+        top: anchor(top);
+        left: anchor(right);
+        margin-left: 10px;
+      }
+
+      @position-try --left {
+        top: anchor(top);
+        right: anchor(left);
+        margin-right: 10px;
+      }
+
+      /* Optional: keep JS fallback arrow attribute from affecting anchored layout */
+      .tooltip[data-placement] { /* no-op */ }
+    }
+  </style>
+</head>
+<body>
+  <div class="status">
+    Drag the box. Tooltip follows via <code>anchor-name</code> + <code>position-anchor</code>.
+    It will flip using <code>@position-try</code> when supported; otherwise JS mimics the same behavior.
+    <span id="support"></span>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="draggable" id="chip">Drag me</div>
+    <div class="tooltip" id="tip">I’m anchored to the draggable element.</div>
+  </div>
+
+  <script>
+    const stage = document.getElementById("stage");
+    const chip  = document.getElementById("chip");
+    const tip   = document.getElementById("tip");
+    const supportEl = document.getElementById("support");
+
+    const supportsAnchors =
+      CSS.supports("anchor-name: --a") &&
+      CSS.supports("position-anchor: --a") &&
+      (CSS.supports("left: anchor(left)") || CSS.supports("top: anchor(bottom)"));
+
+    supportEl.textContent = supportsAnchors
+      ? " ✅ Anchor positioning supported (CSS flip via @position-try)."
+      : " ⚠️ Anchor positioning not supported here — JS flip fallback enabled.";
+
+    // ---- Drag logic (Pointer Events: mouse + touch) ----
+    let dragging = false;
+    let offsetX = 0, offsetY = 0;
+
+    function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+
+    function setChipPosition(x, y) {
+      const stageRect = stage.getBoundingClientRect();
+      const chipRect  = chip.getBoundingClientRect();
+
+      const maxX = stageRect.width - chipRect.width;
+      const maxY = stageRect.height - chipRect.height;
+
+      chip.style.left = clamp(x, 0, maxX) + "px";
+      chip.style.top  = clamp(y, 0, maxY) + "px";
+
+      if (!supportsAnchors) positionTooltipFallbackSmart();
+    }
+
+    // ---- JS fallback: try placements in order and pick the first that fits in the stage ----
+    function positionTooltipFallbackSmart() {
+      const stageRect = stage.getBoundingClientRect();
+      const chipRect  = chip.getBoundingClientRect();
+
+      // Convert chip rect to stage-local coords
+      const chipX = chipRect.left - stageRect.left;
+      const chipY = chipRect.top  - stageRect.top;
+      const chipW = chipRect.width;
+      const chipH = chipRect.height;
+
+      // Make sure tooltip has measurable size
+      tip.style.visibility = "hidden";
+      tip.style.display = "block";
+      const tipW = tip.offsetWidth;
+      const tipH = tip.offsetHeight;
+      tip.style.visibility = "";
+
+      const gap = 10;
+
+      const candidates = [
+        { name: "below-start", x: chipX,               y: chipY + chipH + gap },
+        { name: "above-start", x: chipX,               y: chipY - tipH - gap },
+        { name: "below-end",   x: chipX + chipW - tipW,y: chipY + chipH + gap },
+        { name: "above-end",   x: chipX + chipW - tipW,y: chipY - tipH - gap },
+        { name: "right",       x: chipX + chipW + gap, y: chipY },
+        { name: "left",        x: chipX - tipW - gap,  y: chipY }
+      ];
+
+      function fits(x, y) {
+        return x >= 0 && y >= 0 && (x + tipW) <= stageRect.width && (y + tipH) <= stageRect.height;
+      }
+
+      let chosen = candidates.find(c => fits(c.x, c.y));
+
+      // If nothing fully fits, clamp the first candidate (below-start) into the stage
+      if (!chosen) {
+        const base = candidates[0];
+        chosen = {
+          name: base.name,
+          x: clamp(base.x, 0, stageRect.width - tipW),
+          y: clamp(base.y, 0, stageRect.height - tipH)
+        };
+      }
+
+      tip.style.left = chosen.x + "px";
+      tip.style.top  = chosen.y + "px";
+      tip.dataset.placement = chosen.name;
+    }
+
+    // Initial fallback placement if needed
+    if (!supportsAnchors) positionTooltipFallbackSmart();
+
+    chip.addEventListener("pointerdown", (e) => {
+      dragging = true;
+      chip.setPointerCapture(e.pointerId);
+
+      const chipRect  = chip.getBoundingClientRect();
+      const stageRect = stage.getBoundingClientRect();
+
+      const px = e.clientX - stageRect.left;
+      const py = e.clientY - stageRect.top;
+
+      offsetX = px - (chipRect.left - stageRect.left);
+      offsetY = py - (chipRect.top  - stageRect.top);
+    });
+
+    chip.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+
+      const stageRect = stage.getBoundingClientRect();
+      const px = e.clientX - stageRect.left;
+      const py = e.clientY - stageRect.top;
+
+      setChipPosition(px - offsetX, py - offsetY);
+    });
+
+    chip.addEventListener("pointerup", () => { dragging = false; });
+    chip.addEventListener("pointercancel", () => { dragging = false; });
+
+    // Keep fallback aligned on resize
+    window.addEventListener("resize", () => {
+      if (!supportsAnchors) positionTooltipFallbackSmart();
+    });
+  </script>
+</body>
+</html>
