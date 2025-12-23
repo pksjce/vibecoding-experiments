@@ -3,169 +3,174 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>CSS Anchor Positioning – Draggable + Tooltip (with flip fallback)</title>
+  <title>CSS Anchor Positioning – Draggable + Tooltip (minimal)</title>
   <style>
-    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-    body { margin: 0; background: #0b1220; color: #e6edf3; }
+    :root{
+      font-family: -apple-system, system-ui, "Segoe UI", sans-serif;
+      --ink:#101214;
+      --bg:#f7f7f7;
+      --panel:#ffffff;
+      --border:#d5d7db;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+    }
+
+    .status {
+      width: min(100vw, 1100px);
+      margin: 20px auto 12px;
+      padding: 0 14px;
+      line-height: 1.4;
+      color: var(--ink);
+      display:flex;
+      align-items:center;
+      gap: 10px;
+    }
+
+    .status .note{
+      display:inline-flex;
+      align-items:center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+    }
+
+    .badge{
+      display:inline-grid;
+      place-items:center;
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
+      background: #101214;
+      color: #fff;
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: .95em;
+      background: #eef0f3;
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
 
     .stage {
       position: relative;
       width: min(100vw, 1100px);
       height: min(80vh, 650px);
-      margin: 32px auto;
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 16px;
-      background:
-        radial-gradient(1200px 600px at 30% 20%, rgba(99,102,241,.22), transparent 60%),
-        radial-gradient(900px 500px at 80% 70%, rgba(16,185,129,.18), transparent 60%),
-        rgba(255,255,255,.03);
+      margin: 0 auto 24px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel);
       overflow: hidden;
-      touch-action: none; /* smoother pointer dragging on touch */
     }
 
     .draggable {
       position: absolute;
-      left: 120px;
-      top: 120px;
-      width: 140px;
-      height: 90px;
-      border-radius: 14px;
-      background: rgba(255,255,255,.10);
-      border: 1px solid rgba(255,255,255,.18);
-      box-shadow: 0 14px 30px rgba(0,0,0,.35);
-      display: grid;
-      place-items: center;
-      user-select: none;
-      cursor: grab;
-
-      /* Define the anchor */
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      padding: 20px 20px;
+      border-radius: 10px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      font-weight: 700;
       anchor-name: --chip;
     }
-    .draggable:active { cursor: grabbing; }
+
+    .draggable:active {
+      cursor: grabbing;
+    }
 
     .tooltip {
       position: absolute;
       padding: 10px 12px;
-      border-radius: 12px;
-      background: rgba(0,0,0,.72);
-      border: 1px solid rgba(255,255,255,.14);
-      backdrop-filter: blur(8px);
-      box-shadow: 0 10px 24px rgba(0,0,0,.35);
-      font-size: 13px;
-      line-height: 1.2;
-      pointer-events: none;
+      border-radius: 10px;
       max-width: 240px;
-      opacity: .98;
-
-      /* arrow support */
+      background: var(--panel);
+      border: 1px solid var(--border);
+      font-size: 14px;
+      color: var(--ink);
       --arrow-size: 10px;
-      --arrow-offset: 18px;
+      --arrow-offset: 16px;
     }
 
-    /* Arrow (default: tooltip below anchor => arrow on top) */
     .tooltip::after {
-      content: "";
-      position: absolute;
       width: var(--arrow-size);
       height: var(--arrow-size);
-      background: inherit;
-      border-left: 1px solid rgba(255,255,255,.14);
-      border-top: 1px solid rgba(255,255,255,.14);
+      background: var(--panel);
+      border-left: 1px solid var(--border);
+      border-top: 1px solid var(--border);
       transform: rotate(45deg);
       left: var(--arrow-offset);
-      top: calc(var(--arrow-size) * -0.6);
+      top: calc(var(--arrow-size) * -0.55);
     }
 
-    /* Arrow variants for JS fallback placements */
-    .tooltip[data-placement^="above"]::after {
-      top: auto;
-      bottom: calc(var(--arrow-size) * -0.6);
-      transform: rotate(225deg);
-      left: var(--arrow-offset);
-    }
-    .tooltip[data-placement^="right"]::after {
-      top: var(--arrow-offset);
-      left: calc(var(--arrow-size) * -0.6);
-      transform: rotate(315deg);
-    }
-    .tooltip[data-placement^="left"]::after {
-      top: var(--arrow-offset);
-      left: auto;
-      right: calc(var(--arrow-size) * -0.6);
-      transform: rotate(135deg);
-    }
-
-    .status {
-      width: min(100vw, 1100px);
-      margin: 0 auto 24px;
-      padding: 0 10px;
-      color: rgba(230,237,243,.85);
-      font-size: 13px;
-    }
-    code { color: #b3c7ff; }
-
-    /* -------------------- */
-    /* Anchor Positioning API with flip fallbacks */
-    /* -------------------- */
+    /* --- Anchor Positioning API with flip fallbacks (unchanged behavior) --- */
     @supports (anchor-name: --a) and (left: anchor(left)) and (position-anchor: --a) {
       .tooltip {
         position-anchor: --chip;
-
-        /* Try below-start first, then flip to above-start, then below-end, above-end, then right/left */
         position-try-fallbacks: --below-start, --above-start, --below-end, --above-end, --right, --left;
       }
 
       @position-try --below-start {
         top: anchor(bottom);
         left: anchor(left);
-        margin-top: 10px;
+        margin-top: 12px;
       }
 
       @position-try --above-start {
         bottom: anchor(top);
         left: anchor(left);
-        margin-bottom: 10px;
+        margin-bottom: 12px;
       }
 
       @position-try --below-end {
         top: anchor(bottom);
         right: anchor(right);
-        margin-top: 10px;
+        margin-top: 12px;
       }
 
       @position-try --above-end {
         bottom: anchor(top);
         right: anchor(right);
-        margin-bottom: 10px;
+        margin-bottom: 12px;
       }
 
       @position-try --right {
         top: anchor(top);
         left: anchor(right);
-        margin-left: 10px;
+        margin-left: 12px;
       }
 
       @position-try --left {
         top: anchor(top);
         right: anchor(left);
-        margin-right: 10px;
+        margin-right: 12px;
       }
-
-      /* Optional: keep JS fallback arrow attribute from affecting anchored layout */
-      .tooltip[data-placement] { /* no-op */ }
     }
   </style>
 </head>
 <body>
   <div class="status">
-    Drag the box. Tooltip follows via <code>anchor-name</code> + <code>position-anchor</code>.
-    It will flip using <code>@position-try</code> when supported; otherwise JS mimics the same behavior.
-    <span id="support"></span>
+    <div class="note">
+      <span class="badge">★</span>
+      Drag the “sticker”. Tooltip follows via <code>anchor-name</code> + <code>position-anchor</code> and flips with <code>@position-try</code> (or JS fallback).
+      <span id="support" style="margin-left:10px;font-weight:700;"></span>
+    </div>
   </div>
 
   <div class="stage" id="stage">
-    <div class="draggable" id="chip">Drag me</div>
-    <div class="tooltip" id="tip">I’m anchored to the draggable element.</div>
+    <div class="draggable" id="chip"><span>✨ Drag me</span></div>
+    <div class="tooltip" id="tip"><strong>Hi!</strong> I’m anchored to the draggable element.</div>
   </div>
 
   <script>
@@ -180,8 +185,8 @@
       (CSS.supports("left: anchor(left)") || CSS.supports("top: anchor(bottom)"));
 
     supportEl.textContent = supportsAnchors
-      ? " ✅ Anchor positioning supported (CSS flip via @position-try)."
-      : " ⚠️ Anchor positioning not supported here — JS flip fallback enabled.";
+      ? " ✅ CSS anchors supported."
+      : " ⚠️ CSS anchors not supported — JS fallback active.";
 
     // ---- Drag logic (Pointer Events: mouse + touch) ----
     let dragging = false;
@@ -220,7 +225,7 @@
       const tipH = tip.offsetHeight;
       tip.style.visibility = "";
 
-      const gap = 10;
+      const gap = 12;
 
       const candidates = [
         { name: "below-start", x: chipX,               y: chipY + chipH + gap },
